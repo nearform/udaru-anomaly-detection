@@ -14,9 +14,10 @@ collaps_chars.update({char: '<G-Z>' for char in 'GHIJKLMNOPQURTUVWXYZ'})
 GrammaNodeT = typing.TypeVar('GrammaNode', bound='GrammaNode')
 KeyType = typing.TypeVar('Key')
 ValueType = typing.TypeVar('Value')
+TokensType = typing.List[str]
 
 
-def tokenize(sequence: str) -> typing.List[str]:
+def tokenize(sequence: str) -> TokensType:
     return [
         collaps_chars[char] if char in collaps_chars else char
         for char in sequence
@@ -26,6 +27,11 @@ def tokenize(sequence: str) -> typing.List[str]:
 class SparseDefaultDict(typing.DefaultDict[KeyType, ValueType]):
     def __missing__(self, key: KeyType) -> ValueType:
         return self.default_factory()
+
+
+class SequenceSolution(typing.NamedTuple):
+    log_properbility: float
+    path: typing.List[int]
 
 
 class GrammaNode:
@@ -152,14 +158,11 @@ class GrammaNode:
         # Only set the self-recursive link, if a self-recursive link was
         # produced
         if self_recursive_link > 0.0:
-            print(self.stringify(), node.stringify(), self_recursive_link)
             self.transition[self.index] = self_recursive_link
         # Also remove transition to the `node` as this has now become
         # a self-recursive link
         if node.index in self.transition:
             del self.transition[node.index]
-
-        print(self.transition)
 
         self.num_aggregated_transitions = total_aggregated_transitions
 
@@ -207,10 +210,10 @@ class CheckGrammaModel:
 
         return - math.log(len(self.nodes)) * connections
 
-    def compute_sequence_log_cost(self, tokenized_sequence: typing.List[str]) \
-            -> float:
+    def sequence_solutions(self, tokenized_sequence: TokensType) -> \
+            typing.List[SequenceSolution]:
         q = queue.Queue()
-        q.put((0, 0.0, self.root))
+        q.put((0, 0.0, self.root, [self.root.index]))
 
         sequence_length = len(tokenized_sequence)
         solutions = []
@@ -218,7 +221,7 @@ class CheckGrammaModel:
         # Find all possible paths for `tokenized_sequence` and compute the
         # log properbility of that path. Store the result in `solutions`.
         while not q.empty():
-            (sequence_index, log_p, node) = q.get()
+            (sequence_index, log_p, node, path) = q.get()
             next_char = (None if sequence_index == sequence_length else
                          tokenized_sequence[sequence_index])
 
@@ -229,21 +232,50 @@ class CheckGrammaModel:
                 # If there is no next char, the next_node must be the end-node
                 if next_char is None:
                     if next_node.is_end:
-                        solutions.append(log_p + math.log(transition_p))
+                        solutions.append(SequenceSolution(
+                            log_properbility=log_p + math.log(transition_p),
+                            path=path + [next_node.index]
+                        ))
                 # The transition points to a node with matching emission
                 elif next_char in next_node.emission:
                     q.put((
                         sequence_index + 1,
                         log_p + math.log(transition_p) +
                               + math.log(next_node.emission[next_char]),
-                        next_node
+                        next_node,
+                        path + [next_node.index]
                     ))
+
+        return solutions
+
+    def sequence_properbility(self, tokenized_sequence: TokensType) \
+            -> float:
+        solutions = self.sequence_solutions(tokenized_sequence)
+
+        if len(solutions) == 0:
+            return 0
+
+        # P(D|M) = sum_{p \in paths} P(D|M,p)
+        return sum(map(
+            lambda solution: math.exp(solution.log_properbility),
+            solutions
+        ))
+
+    def compute_sequence_log_cost(self, tokenized_sequence: TokensType) \
+            -> float:
+        solutions = self.sequence_solutions(tokenized_sequence)
+
+        if len(solutions) == 0:
+            raise RuntimeError(f'no solutions found for {tokenized_sequence}')
 
         # P(D|M) = sum_{p \in paths} P(D|M,p)
         # log(P(D|M)) = log( sum_{p \in paths} exp(log(P(D|M,p))) )
-        return math.log(sum(map(math.exp, solutions)))
+        return math.log(sum(map(
+            lambda solution: math.exp(solution.log_properbility),
+            solutions
+        )))
 
-    def compute_log_cost(self, dataset: typing.List[typing.List[str]]) \
+    def compute_log_cost(self, dataset: typing.List[TokensType]) \
             -> float:
         # unnormalized_posterior = p(data) * p(prior)
         # log(unnormalized_posterior) = log(p(data)) + log(p(prior))
@@ -295,7 +327,7 @@ class CheckGrammaModel:
         # Finally remove the node from the graph table
         del self.nodes[remove_node.index]
 
-    def add_unmerged_sequence(self, tokenized_sequence: typing.List[str]) \
+    def add_unmerged_sequence(self, tokenized_sequence: TokensType) \
             -> typing.List[GrammaNode]:
         unmerged_nodes = []
 
@@ -335,7 +367,7 @@ class CheckGrammaModel:
         return unmerged_nodes
 
     def find_optimal_merge(self, node: GrammaNode,
-                           dataset: typing.List[typing.List[str]]):
+                           dataset: typing.List[TokensType]):
         best_model_cost = self.compute_log_cost(dataset)
         best_merge_node = None
 
@@ -362,38 +394,67 @@ class CheckGrammaModel:
 
         return best_merge_node
 
-    def merge_sequence(self, tokenized_sequence: typing.List[str],
-                       dataset: typing.List[typing.List[str]]):
-        # TODO: Consider checking if tokenized_sequence is allready
-        # representable by the network. If so, a more complex network won't
-        # benfit because of P(M) and the focus should be on P(D|M) that
-        # can likely be optimized by just increment the highest properbility
-        # path.
-        nodes = self.add_unmerged_sequence(tokenized_sequence)
-        for node in nodes:
-            best_merge_node = self.find_optimal_merge(node, dataset)
-            if best_merge_node is None:
-                # If there are no optimial merges, then mark this node
-                # as done. This allows futures unmerged nodes to merge into
-                # this node.
-                node.allow_merge = True
-            else:
-                # Found an optimal merge, execute merge on the master model
-                # and remove the new node from the list.
-                self.merge_node(best_merge_node, node)
+    def merge_sequence(self, tokenized_sequence: TokensType,
+                       dataset: typing.List[TokensType]):
+        # Fast path
+        solutions = self.sequence_solutions(tokenized_sequence)
+        if len(solutions) > 0:
+            # If tokenized_sequence is allready representable by the network.
+            # If so, a more complex network won't benfit because of P(M) and
+            # the focus should be on P(D|M) that can likely be optimized by
+            # just increment the highest properbility path.
+            best_solution = solutions[0]
+            for solution in solutions[1:]:
+                if solution.log_properbility > best_solution.log_properbility:
+                    best_solution = solution
+
+            # increment transition and emission along the path
+            for prev_node_index, this_node_index, char in zip(
+                best_solution.path[:-2],
+                best_solution.path[1:-1],
+                tokenized_sequence
+            ):
+                prev_node = self.nodes[prev_node_index]
+                this_node = self.nodes[this_node_index]
+
+                prev_node.increment_transition(this_node)
+                this_node.increment_emission(char)
+
+            # In the above the end node is excluded, so increment the
+            # transition between the last real node `this_node` and the end
+            # node.
+            self.nodes[best_solution.path[-2]].increment_transition(self.end)
+
+        else:
+            # Slow path
+            nodes = self.add_unmerged_sequence(tokenized_sequence)
+            for node in nodes:
+                best_merge_node = self.find_optimal_merge(node, dataset)
+                if best_merge_node is None:
+                    # If there are no optimial merges, then mark this node
+                    # as done. This allows futures unmerged nodes to merge into
+                    # this node.
+                    node.allow_merge = True
+                else:
+                    # Found an optimal merge, execute merge on the master model
+                    # and remove the new node from the list.
+                    self.merge_node(best_merge_node, node)
 
 
-def train(sequences: typing.List[str]) -> CheckGrammaModel:
+def train(sequences: TokensType) -> CheckGrammaModel:
     model = CheckGrammaModel()
-    tokenized_sequences = map(tokenize, sequences)
 
     # Add remaining sequences by merge
-    for i, tokenized_sequence in enumerate(tokenized_sequences):
-        model.merge_sequence(tokenized_sequence, tokenized_sequences[0:i+1])
+    tokenized_sequences = []
+    for i, sequence in enumerate(sequences):
+        print(f'{i}: {sequence}')
+        tokenized_sequence = tokenize(sequence)
+        tokenized_sequences.append(tokenized_sequence)
+        model.merge_sequence(tokenized_sequence, tokenized_sequences)
 
     return model
 
 
 def validate(model: CheckGrammaModel, sequence: str,
              threshold: float=0.0) -> bool:
-    pass
+    return model.sequence_properbility(tokenize(sequence)) > threshold

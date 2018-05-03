@@ -300,3 +300,81 @@ def test_merge_sequence():
         ),
         math.log(fr3 * 0.4 * 0.4 * 0.4 * 0.6 * 1.0)
     )
+
+
+def test_merge_sequence_fast():
+    model = check_gramma.CheckGrammaModel()
+    dataset = [
+        ['A', 'B', 'A', 'B', 'C', 'C'],
+        ['B', 'C'],
+        ['B', 'C']
+    ]
+
+    # Build Graph
+    #
+    #  /---> B ---> C(1) ---\
+    # ^ -> [A|B] -> [C](2) --> $
+    #
+
+    node_b = model.add_node()
+    node_b.increment_emission('B')
+
+    node_ab = model.add_node()
+    node_ab.increment_emission('A')
+    node_ab.increment_emission('B')
+    node_ab.increment_transition(node_ab)
+
+    node_c1 = model.add_node()
+    node_c1.increment_emission('C')
+
+    node_c2 = model.add_node()
+    node_c2.increment_emission('C')
+    node_c2.increment_transition(node_c2)
+
+    model.root.increment_transition(node_b)
+    model.root.increment_transition(node_ab)
+
+    node_b.increment_transition(node_c1)
+    node_ab.increment_transition(node_c2)
+
+    node_c1.increment_transition(model.end)
+    node_c2.increment_transition(model.end)
+
+    # Assert that correct paths are taken
+    assert_almost_equal(model.compute_prior_log_cost(),
+                        math.log(6 ** -(8 + 7)))
+    assert_almost_equal(
+        model.compute_sequence_log_cost(dataset[0]),
+        math.log(0.5 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 *
+                 0.5 * 1.0 * 0.5 * 1.0 * 0.5 * 1.0)
+    )
+    assert_almost_equal(
+        model.compute_sequence_log_cost(dataset[1]),
+        math.log(0.5 * 0.5 * 0.5 * 1.0 * 0.5 * 1.0 +
+                 0.5 * 1.0 * 1.0 * 1.0 * 1.0 * 1.0)
+    )
+
+    # Perform a fast merge
+    # The heuristic actually produces something suboptimal in this case
+    model.merge_sequence(dataset[2], dataset)
+
+    # Assert that correct paths are taken
+    assert_almost_equal(model.compute_prior_log_cost(),
+                        math.log(6 ** -(8 + 7)))
+    assert_almost_equal(
+        model.compute_sequence_log_cost(dataset[0]),
+        math.log(fr3 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 *
+                 0.5 * 1.0 * 0.5 * 1.0 * 0.5 * 1.0)
+    )
+    assert_almost_equal(
+        model.compute_sequence_log_cost(dataset[1]),
+        math.log(1*fr3 * 0.5 * 0.5 * 1.0 * 0.5 * 1.0 +
+                 2*fr3 * 1.0 * 1.0 * 1.0 * 1.0 * 1.0)
+    )
+
+
+def test_train_and_validate():
+    model = check_gramma.train(generate_resource(100, 'train'))
+
+    for sequence in generate_resource(5, 'test'):
+        assert check_gramma.validate(model, sequence)
