@@ -37,6 +37,10 @@ distribution_model.validate(
 Builds a graph model (think, regular expression) based on previuse
 observations and checks if the new `resource` string maches·
 
+TODO:
+
+* Training the model can be solve. (1 hour for 100 resources).
+
 ```python
 from anomaly_detection import check_gramma
 
