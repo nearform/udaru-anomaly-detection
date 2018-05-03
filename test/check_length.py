@@ -27,4 +27,4 @@ def test_check_length():
         elif len(valid_range) == 2:
             break
 
-    assert_equal(valid_range, [6, 56])
+    assert_equal(valid_range, [4, 50])

@@ -12,17 +12,17 @@ def generate_resource(size: int, dataset: str):
     fake.seed_instance(seeds[dataset])
 
     for i in range(size):
-        resource = f'res:{fake.user_name()}'
+        resource = f'res:{fake.sha1()[:8]}'
         if (fake.boolean(chance_of_getting_true=50)):
-            resource += f':{fake.domain_word()}'
+            resource += f':{fake.first_name().lower()}'
 
         if (fake.boolean(chance_of_getting_true=90)):
-            resource += f':/{fake.word()}'
+            resource += f':/{fake.language_code()}'
 
         if (fake.boolean(chance_of_getting_true=40)):
-            resource += f'/{fake.word()}'
+            resource += f'/{fake.user_name()}'
 
         if (fake.boolean(chance_of_getting_true=20)):
-            resource += f'/{fake.word()}'
+            resource += f'/{fake.domain_word()}'
 
         yield resource
