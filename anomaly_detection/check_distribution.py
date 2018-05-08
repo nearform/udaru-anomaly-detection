@@ -6,6 +6,30 @@ import itertools
 import scipy.stats
 import numpy as np
 
+"""
+Checks if the distribution of characters is unlikely.
+
+The expected distribution of charecters is calculated from the training
+dataset. Some of the charecters are grouped together, this is to increase
+generality and the degrees of freedom in the statistical test.
+
+This charecter grouping shouldn't compromise the models ability to detect
+anomalies. Attacks are usually done using special charecters, such as / and ..
+in filepaths and not using standard latin letters and numbers.
+
+The statistical test, is a chi-squared test. This test depends on the
+chi-squared distribution and is poorly implemented in JavaScript. Those
+implementation may work for some input combinations, but don't expect them
+to work for all. This may prove a problem in usecases like this, where the
+parameter input isn't something that can be controlled.
+
+For a better implementation, the scipy python library is used here. This
+in turns depends on the "special function" part of the Cephes library. This
+library could be ported to JavaScript if needed.
+
+Cephes Library: https://github.com/scipy/scipy/tree/master/scipy/special/cephes
+"""
+
 collaps_chars = dict()
 collaps_chars.update({char: '<0-9>' for char in '0123456789'})
 collaps_chars.update({char: '<a-f>' for char in 'abcdef'})
@@ -37,7 +61,11 @@ def compute_unordered_frequency(sequence: str) -> \
     return frequency
 
 
-def train(sequences: typing.List[str]):
+def train(sequences: typing.List[str], verbose: bool=False) \
+        -> CheckDistributionModel:
+    if verbose:
+        print(f'Training DistributionModel with {len(sequences)} sequences')
+
     # Compute frequency for each sequence
     frequencies = [
         compute_unordered_frequency(sequence) for sequence in sequences

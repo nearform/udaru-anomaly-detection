@@ -4,6 +4,78 @@ import math
 import typing
 import queue
 
+"""
+Validate the resource string aganist a grammatical model (think RegExp).
+
+The grammatical model is generated using baysian merging of markov chains.
+The original paper is [1] with some more details in [2]. The application of
+this is described in [3], that paper does however contain some rather
+unfortunete typos in the equations so look also in [4], which is basically
+the same paper just for a slightly different application. Finally, the algoritm
+is rather slow. After implementing this I found [5], which may give some ideas
+to a much faster algorithm. Later, I also found [6] which appears to be an
+extended explantion of [1, 2].
+
+Fundamentally, the algorithm works by adding a string to graph as a linked
+list:
+
+^ -> A -> A -> C -> D -> $
+
+Each state in this markov chain is then attempted to be merged into every
+other states in the graph. Except, this is done left to right in the chain
+so states right of current state in the linked list, will be ignoredself.
+
+^ -> [A] -> C -> D -> $
+
+the box around [A], means it links to itself.
+        /-<-\
+        \   /
+[A] =    -A->
+
+Another string is then added to graph:
+
+  /->  B  -> B -> C -> D -\
+^ --> [A] ------> C -> D --> $
+
+This is then merged:
+
+  /-> [B] -> C -> D -\
+^ --> [A] -> C -> D --> $
+
+  /-> [B] -\   /-> D -\
+^ --> [A] --> C -> D --> $
+
+  /-> [B] -\
+^ --> [A] --> C -> D --> $
+
+The merging criteria is based on Bayes' Theorem:
+
+                P(Data|Model) * P(Model)
+P(Model|Data) = ------------------------
+                         P(Data)
+
+As the model isn't part of the P(data), the P(data) is a constant and is thus
+ignored. In the comments below, this is just written as P(M|D) = P(D|M) P(M)
+
+[1] Hidden Markov Model Induction by Bayesian Model Merging, Andreas Stolche,
+Stephen Omohundro. 1994.
+
+[2] Inducing Probabilstic Grammars by Bayesian Model Merging Andreas Stolche,
+Stephen Omohundro. 1994.
+
+[3] Anomaly Detection of Web-based Attacks. Cristopher Kruegel,
+Giovanni Vigna. 2003.
+
+[4] Anomalous System Call Detection, Darren Mutz, Fredrik Valeur,
+Christopher Kruegel, Giovanni Vigna. 2006.
+
+[5] Larning Stochastic Regular Grammars by Means of a State Merging Method,
+Rafeal C. Carrasco, Jose Oncina, 2005.
+
+[6] Best-first Model Merging for Hidden Markov Model Induction,
+Andreas Stolche, Stephen Omohundro. 1994.
+"""
+
 collaps_chars = dict()
 collaps_chars.update({char: '<0-9>' for char in '0123456789'})
 collaps_chars.update({char: '<a-f>' for char in 'abcdef'})
@@ -11,7 +83,7 @@ collaps_chars.update({char: '<A-F>' for char in 'ABCDEF'})
 collaps_chars.update({char: '<g-z>' for char in 'ghijklmnopqurtuvwxyz'})
 collaps_chars.update({char: '<G-Z>' for char in 'GHIJKLMNOPQURTUVWXYZ'})
 
-GrammaNodeT = typing.TypeVar('GrammaNode', bound='GrammaNode')
+GrammaNodeTypeype = typing.TypeVar('GrammaNode', bound='GrammaNode')
 KeyType = typing.TypeVar('Key')
 ValueType = typing.TypeVar('Value')
 TokensType = typing.List[str]
@@ -25,6 +97,9 @@ def tokenize(sequence: str) -> TokensType:
 
 
 class SparseDefaultDict(typing.DefaultDict[KeyType, ValueType]):
+    # The typing.DefaultDict will create an item in the dict when it is read,
+    # even if the item is never written to. To prevent this, create a subtype
+    # with a __missing__ handler.
     def __missing__(self, key: KeyType) -> ValueType:
         return self.default_factory()
 
@@ -78,6 +153,14 @@ class GrammaNode:
                 f'{{{self.stringify_transition()}}}')
 
     def increment_emission(self, inc_char: str):
+        """
+        Increase the properbility of emission `inc_char`.
+
+        The properbility is increased by an amount corresponding to there
+        being one more observation containing this emission at this state in
+        the markov chain.
+        """
+
         n = self.num_aggregated_emissions
         rescale = n / (n + 1)
 
@@ -89,7 +172,14 @@ class GrammaNode:
         self.emission[inc_char] += 1 / (n + 1)
         self.num_aggregated_emissions = n + 1
 
-    def increment_transition(self, inc_destination: GrammaNodeT):
+    def increment_transition(self, inc_destination: GrammaNodeType):
+        """
+        Increase the properbility of transition `inc_destination`.
+
+        The properbility is increased by an amount corresponding to there
+        being one more observation containing this transition at this state in
+        the markov chain.
+        """
         inc_index = inc_destination.index
         n = self.num_aggregated_transitions
         rescale = n / (n + 1)
@@ -105,7 +195,13 @@ class GrammaNode:
         # Add this node as parent to the description
         inc_destination.parents.add(self.index)
 
-    def merge_emissions(self, node: GrammaNodeT):
+    def merge_emissions(self, node: GrammaNodeType):
+        """
+        Merge the emissions from `node` into this node.
+
+        The emissions from `node` are not changed, only this object is changed.
+        """
+
         # Merge emissions
         total_aggregated_emissions = (self.num_aggregated_emissions +
                                       node.num_aggregated_emissions)
@@ -122,7 +218,13 @@ class GrammaNode:
 
         self.num_aggregated_emissions = total_aggregated_emissions
 
-    def merge_transitions(self, node: GrammaNodeT):
+    def merge_transitions(self, node: GrammaNodeType):
+        """
+        Merge the transitions from `node` into this node.
+
+        The transitions from `node` are not changed, only this object is
+        changed.
+        """
         # Merge outgoing transitions
         total_aggregated_transitions = (self.num_aggregated_transitions +
                                         node.num_aggregated_transitions)
@@ -190,17 +292,46 @@ class CheckGrammaModel:
             output += node.stringify() + '\n'
         return output
 
-    def compute_prior_log_cost(self) -> float:
-        # Compute prior loss as:
-        #   \prod_{s \in States} N^(-e_s) * N^(-t_s)
-        # All those multiplications are not nummerically stable, so compute
-        # the cost in log space.
-        #   \sum_{s \in States} log(N) * (-e_s) + log(N) * (-t_s)
-        #   \sum_{s \in States} log(N) * (-t_s - e_s)
-        #   log(N) \sum_{s \in States} -(t_s + e_s)
-        #   -log(N) \sum_{s \in States} (t_s + e_s)
-        # Note, that the root and end nodes are not treated a emitting nodes.
-        # However, the start node does have transitions.
+    def compute_prior_log_prop(self) -> float:
+        """
+        Compute the baysian prior properbility, denoted P(M).
+
+        In [3, 4] the baysian prior is defined as:
+
+          P(M) = \prod_{s \in States} N^(-e_s) * N^(-t_s)
+
+        Note that the notation in [3, 4] is very clumsy and the above equation
+        only makes sense if the start and end states are not treated as
+        emissions.
+
+        The P(M) equation from [3, 4] also has the unfortunete consequence
+        to value states with multiple emissions to high. To improve upon this,
+        consider the multiple emission state:
+
+        ^ -> (A|B) -> $
+
+        This can be expressed as:
+
+           /-> A -\
+        ^ -+       +> $
+           \-> B -/
+
+        Extrapolating this to any number of emissions, a state-block like
+        this contains $3 (e_s - 1) + 1 t_s$ transitions and emissions, if
+        e_s and t_s is the number of emissions and transitions for (A|B).
+        The baysian prior is this reformulated as:
+
+          P(M) = \prod_{s \in States} N^(-(3 * (e_s - 1) + 1)) * N^(-t_s)
+
+        All those powers and multiplications are not nummerically stable,
+        and quite expensive to compute. To improve both of these issues,
+        the log properbility is computed instead:
+
+          log(P(M)) = \sum_{s \in S} log(N)*(-(3*(e_s-1)+1)) + log(N)*(-t_s)
+          log(P(M)) = \sum_{s \in S} log(N)*(-(3*(e_s-1)+1) - t_s)
+          log(P(M)) = - \sum_{s \in S} log(N)*(3 * (e_s - 1) + 1 + t_s)
+          log(P(M)) = -log(N) \sum_{s \in S} (3 * (e_s - 1) + 1 + t_s)
+        """
         connections = sum(
             3 * (len(node.emission) - 1) + 1 + len(node.transition)
             for node in self.nodes.values()
@@ -212,6 +343,9 @@ class CheckGrammaModel:
 
     def sequence_solutions(self, tokenized_sequence: TokensType) -> \
             typing.List[SequenceSolution]:
+        """
+        Find all paths in graph for the tokenized sequence.
+        """
         q = queue.Queue()
         q.put((0, 0.0, self.root, [self.root.index]))
 
@@ -250,6 +384,13 @@ class CheckGrammaModel:
 
     def sequence_properbility(self, tokenized_sequence: TokensType) \
             -> float:
+        """
+        Compute the sequence properbility.
+
+        This differes from compute_sequence_log_prop in that it return
+        P(D|M) = 0, if no solutions to the sequence where found. This is
+        used for validating a sequence.
+        """
         solutions = self.sequence_solutions(tokenized_sequence)
 
         if len(solutions) == 0:
@@ -261,12 +402,23 @@ class CheckGrammaModel:
             solutions
         ))
 
-    def compute_sequence_log_cost(self, tokenized_sequence: TokensType) \
+    def compute_sequence_log_prop(self, tokenized_sequence: TokensType) \
             -> float:
+        """
+        Compute the sequence log properbility.
+
+        Compute the log properbility of the sequence. This implementation
+        is used in the cost computation and a solution must therefore exist.
+
+        It also contains a fast path, for when there is only one solution.
+        """
         solutions = self.sequence_solutions(tokenized_sequence)
 
         if len(solutions) == 0:
             raise RuntimeError(f'no solutions found for {tokenized_sequence}')
+
+        if len(solutions) == 1:
+            return solution[0].log_properbility
 
         # P(D|M) = sum_{p \in paths} P(D|M,p)
         # log(P(D|M)) = log( sum_{p \in paths} exp(log(P(D|M,p))) )
@@ -275,13 +427,18 @@ class CheckGrammaModel:
             solutions
         )))
 
-    def compute_log_cost(self, dataset: typing.List[TokensType]) \
+    def compute_cost(self, dataset: typing.List[TokensType]) \
             -> float:
+        """
+        Computes the model cost, given a dataset.
+
+        The cost is defined as the negative log-properbility of P(M|D).
+        """
         # unnormalized_posterior = p(data) * p(prior)
         # log(unnormalized_posterior) = log(p(data)) + log(p(prior))
-        log_prior = self.compute_prior_log_cost()
+        log_prior = self.compute_prior_log_prop()
         log_data = sum(
-            map(self.compute_sequence_log_cost, dataset)
+            map(self.compute_sequence_log_prop, dataset)
         )
         unnormalized_log_posterior = log_data + log_prior
         return -unnormalized_log_posterior
@@ -344,13 +501,11 @@ class CheckGrammaModel:
             # identical subsequent nodes are merged, without computing the
             # posterior properbility:
             #
-            # ^ -> A -> A -> A -> / -> B -> B -> B -> $
+            #   ^ -> A -> A -> A -> / -> B -> B -> B -> $
             #
-            # Should be merged to
+            # Should be merged to:
             #
-            # ^ ->  A  -> / ->  B  -> $
-            #      ^ |         ^ |
-            #      \_/         \_/
+            #   ^ ->  [A]  -> / ->  [B]  -> $
             if char == previuse_char:
                 # Merge if emission is identical
                 previuse_node.increment_transition(previuse_node)
@@ -368,7 +523,7 @@ class CheckGrammaModel:
 
     def find_optimal_merge(self, node: GrammaNode,
                            dataset: typing.List[TokensType]):
-        best_model_cost = self.compute_log_cost(dataset)
+        best_model_cost = self.compute_cost(dataset)
         best_merge_node = None
 
         for suggested_merge_node in self.nodes.values():
@@ -386,7 +541,7 @@ class CheckGrammaModel:
                 suggested_model.nodes[suggested_merge_node.index],
                 suggested_model.nodes[node.index]
             )
-            suggested_model_cost = suggested_model.compute_log_cost(dataset)
+            suggested_model_cost = suggested_model.compute_cost(dataset)
 
             if suggested_model_cost < best_model_cost:
                 best_model_cost = suggested_model_cost
@@ -441,13 +596,16 @@ class CheckGrammaModel:
                     self.merge_node(best_merge_node, node)
 
 
-def train(sequences: TokensType) -> CheckGrammaModel:
+def train(sequences: TokensType, verbose: bool=False) -> CheckGrammaModel:
+    if verbose:
+        print(f'Training GrammaModel with {len(sequences)} sequences')
     model = CheckGrammaModel()
 
     # Add remaining sequences by merge
     tokenized_sequences = []
     for i, sequence in enumerate(sequences):
-        print(f'{i}: {sequence}')
+        if verbose:
+            print(f'  {i}: {sequence}')
         tokenized_sequence = tokenize(sequence)
         tokenized_sequences.append(tokenized_sequence)
         model.merge_sequence(tokenized_sequence, tokenized_sequences)

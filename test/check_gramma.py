@@ -18,9 +18,9 @@ def test_loss_calculation():
     model.root.increment_transition(node_a)
     node_a.increment_transition(model.end)
 
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(3 ** -3))
-    assert_almost_equal(model.compute_sequence_log_cost(['A']),
+    assert_almost_equal(model.compute_sequence_log_prop(['A']),
                         math.log(1 * 1 * 1))
 
     # Test loss on:

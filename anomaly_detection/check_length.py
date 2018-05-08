@@ -3,7 +3,6 @@ import typing
 
 import numpy as np
 
-
 """
 Checks if the length is unlikely.
 
@@ -27,7 +26,11 @@ class CheckLengthModel(typing.NamedTuple):
     var: float
 
 
-def train(sequences: typing.Iterable[str]) -> CheckLengthModel:
+def train(sequences: typing.Iterable[str], verbose: bool=False) \
+        -> CheckLengthModel:
+    if verbose:
+        print(f'Training LengthModel with {len(sequences)} sequences')
+
     lengths = np.fromiter(map(len, sequences), int)
 
     return CheckLengthModel(
