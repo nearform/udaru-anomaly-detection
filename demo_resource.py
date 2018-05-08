@@ -1,18 +1,28 @@
 
-from test.generator import generate_resource
-import anomaly_detection
+import pickle
 
-train_dataset = list(generate_resource(100, 'train'))
+from _generator import generate_resource
+from anomaly_detection import check_length, check_distribution, check_gramma
+
+train_dataset = list(generate_resource(100, 'test'))
 test_dataset = list(generate_resource(5, 'test')) + [
      '../../../passwd',
      ':(){ :|: & };:',
      'a',
-     'a' * 70
+     'a' * 70,
+     'res::ricky:/sl/jennifersaunders',
+     'res:/sl/:ricky:/jennifersaunders'
 ]
 
-length_model = anomaly_detection.check_length.train(train_dataset)
-distribution_model = anomaly_detection.check_distribution.train(train_dataset)
-gramma_model = anomaly_detection.check_gramma.train(train_dataset)
+
+with open('models/length-model.pkl') as fp:
+    length_model = pickle.load(fp)
+
+with open('models/distribution-model.pkl') as fp:
+    distribution_model = pickle.load(fp)
+
+with open('models/gramma-model.pkl') as fp:
+    gramma_model = pickle.load(fp)
 
 print('train dataset:')
 for resource in train_dataset:
@@ -22,7 +32,7 @@ print('')
 print('test dataset:')
 for resource in test_dataset:
     print(f' {resource}')
-    print(f' - length: {anomaly_detection.check_length.validate(length_model, resource)}')
-    print(f' - distribution: {anomaly_detection.check_distribution.validate(distribution_model, resource)}')
-    print(f' - gramma: {anomaly_detection.check_gramma.validate(distribution_model, resource)}')
+    print(f' - length: {check_length.validate(length_model, resource)}')
+    print(f' - distribution: {check_distribution.validate(distribution_model, resource)}')
+    print(f' - gramma: {check_gramma.validate(distribution_model, resource)}')
     print('')
