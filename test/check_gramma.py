@@ -26,11 +26,11 @@ def test_loss_calculation():
     # Test loss on:
     # ^ -> [A] -> $
     node_a.increment_transition(node_a)
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(3 ** -4))
-    assert_almost_equal(model.compute_sequence_log_cost(['A']),
+    assert_almost_equal(model.compute_sequence_log_prop(['A']),
                         math.log(1 * 0.5))
-    assert_almost_equal(model.compute_sequence_log_cost(['A', 'A']),
+    assert_almost_equal(model.compute_sequence_log_prop(['A', 'A']),
                         math.log(1 * 0.5 * 0.5))
 
     # Test loss on:
@@ -41,13 +41,13 @@ def test_loss_calculation():
     model.root.increment_transition(node_b)
     node_b.increment_transition(model.end)
 
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(4 ** -7))
-    assert_almost_equal(model.compute_sequence_log_cost(['A']),
+    assert_almost_equal(model.compute_sequence_log_prop(['A']),
                         math.log(0.5 * 0.5))
-    assert_almost_equal(model.compute_sequence_log_cost(['A', 'A']),
+    assert_almost_equal(model.compute_sequence_log_prop(['A', 'A']),
                         math.log(0.5 * 0.5 * 0.5))
-    assert_almost_equal(model.compute_sequence_log_cost(['B']),
+    assert_almost_equal(model.compute_sequence_log_prop(['B']),
                         math.log(0.5 * 1 * 1))
 
     # Test loss on:
@@ -57,15 +57,15 @@ def test_loss_calculation():
     node_a.increment_emission('A')
     node_a.increment_emission('A')
 
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(4 ** -(5 + 5)))
-    assert_almost_equal(model.compute_sequence_log_cost(['A']),
+    assert_almost_equal(model.compute_sequence_log_prop(['A']),
                         math.log(0.5 * 0.75 * 0.5))
-    assert_almost_equal(model.compute_sequence_log_cost(['A', 'A']),
+    assert_almost_equal(model.compute_sequence_log_prop(['A', 'A']),
                         math.log(0.5 * 0.75 * 0.5 * 0.75 * 0.5))
-    assert_almost_equal(model.compute_sequence_log_cost(['B']),
+    assert_almost_equal(model.compute_sequence_log_prop(['B']),
                         math.log(0.5 * 1 * 1 + 0.5 * 0.25 * 0.5))
-    assert_almost_equal(model.compute_sequence_log_cost(['B', 'B']),
+    assert_almost_equal(model.compute_sequence_log_prop(['B', 'B']),
                         math.log(0.5 * 0.25 * 0.5 * 0.25 * 0.5))
 
 
@@ -117,16 +117,16 @@ def test_merge_node():
     node_h.increment_transition(model.end)
 
     # Check cost of structure
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(10 ** -(8 + 14)))
 
-    assert_almost_equal(model.compute_sequence_log_cost(['A', 'D', 'F']),
+    assert_almost_equal(model.compute_sequence_log_prop(['A', 'D', 'F']),
                         math.log(fr3 * 1.0 * 0.5 * 1.0))
-    assert_almost_equal(model.compute_sequence_log_cost(['B', 'D', 'G']),
+    assert_almost_equal(model.compute_sequence_log_prop(['B', 'D', 'G']),
                         math.log(fr3 * 0.5 * 0.5 * 1.0))
-    assert_almost_equal(model.compute_sequence_log_cost(['B', 'E', 'G']),
+    assert_almost_equal(model.compute_sequence_log_prop(['B', 'E', 'G']),
                         math.log(fr3 * 0.5 * 0.5 * 1.0))
-    assert_almost_equal(model.compute_sequence_log_cost(['C', 'E', 'H']),
+    assert_almost_equal(model.compute_sequence_log_prop(['C', 'E', 'H']),
                         math.log(fr3 * 1.0 * 0.5 * 1.0))
 
     #
@@ -145,16 +145,16 @@ def test_merge_node():
     model.merge_node(node_d, node_e)
 
     # Check cost of structure
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(9 ** -(10 + 12)))
 
-    assert_almost_equal(model.compute_sequence_log_cost(['A', 'D', 'F']),
+    assert_almost_equal(model.compute_sequence_log_prop(['A', 'D', 'F']),
                         math.log(fr3 * 1.0 * 0.5 * 0.25 * 1.0))
-    assert_almost_equal(model.compute_sequence_log_cost(['B', 'D', 'G']),
+    assert_almost_equal(model.compute_sequence_log_prop(['B', 'D', 'G']),
                         math.log(fr3 * 1.0 * 0.5 * 0.5 * 1.0))
-    assert_almost_equal(model.compute_sequence_log_cost(['B', 'E', 'G']),
+    assert_almost_equal(model.compute_sequence_log_prop(['B', 'E', 'G']),
                         math.log(fr3 * 1.0 * 0.5 * 0.5 * 1.0))
-    assert_almost_equal(model.compute_sequence_log_cost(['C', 'E', 'H']),
+    assert_almost_equal(model.compute_sequence_log_prop(['C', 'E', 'H']),
                         math.log(fr3 * 1.0 * 0.5 * 0.25 * 1.0))
 
 
@@ -217,12 +217,12 @@ def test_merge_sequence_self_merge():
     #
     model.merge_sequence(dataset[0], dataset[0:1])
 
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(6 ** -10))
 
     # Test that the graph generalizes to ABC repeating more than the dataset
     assert_almost_equal(
-        model.compute_sequence_log_cost(
+        model.compute_sequence_log_prop(
             ['A', 'B', 'C', 'A', 'B', 'C', 'A', 'B', 'C', 'D']
         ),
         math.log(1.0 * 1.0 * 1.0 * 0.5 *
@@ -245,10 +245,10 @@ def test_merge_sequence():
     #
     model.merge_sequence(dataset[0], dataset[0:1])
 
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(5 ** -(3 + 5)))
     assert_almost_equal(
-        model.compute_sequence_log_cost(
+        model.compute_sequence_log_prop(
             ['A', 'A', 'A', 'C', 'D']
         ),
         math.log(1.0 * 0.5 * 0.5 * 0.5 * 1.0 * 1.0)
@@ -259,16 +259,16 @@ def test_merge_sequence():
     #  \-> [B] -/
     model.merge_sequence(dataset[1], dataset[0:2])
 
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(6 ** -(4 + 8)))
     assert_almost_equal(
-        model.compute_sequence_log_cost(
+        model.compute_sequence_log_prop(
             ['A', 'A', 'A', 'C', 'D']
         ),
         math.log(0.5 * 0.5 * 0.5 * 0.5 * 1.0 * 1.0)
     )
     assert_almost_equal(
-        model.compute_sequence_log_cost(
+        model.compute_sequence_log_prop(
             ['B', 'B', 'B', 'C', 'D']
         ),
         math.log(0.5 * 0.5 * 0.5 * 0.5 * 1.0 * 1.0)
@@ -280,22 +280,22 @@ def test_merge_sequence():
     #  \-> [B] -/
     model.merge_sequence(dataset[2], dataset[0:3])
 
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(6 ** -(4 + 10)))
     assert_almost_equal(
-        model.compute_sequence_log_cost(
+        model.compute_sequence_log_prop(
             ['A', 'A', 'A', 'C', 'D']
         ),
         math.log(fr3 * 0.5 * 0.5 * 0.5 * 1.0 * 0.6 * 1.0)
     )
     assert_almost_equal(
-        model.compute_sequence_log_cost(
+        model.compute_sequence_log_prop(
             ['B', 'B', 'B', 'C', 'D']
         ),
         math.log(fr3 * 0.5 * 0.5 * 0.5 * 1.0 * 0.6 * 1.0)
     )
     assert_almost_equal(
-        model.compute_sequence_log_cost(
+        model.compute_sequence_log_prop(
             ['C', 'C', 'C', 'C', 'D']
         ),
         math.log(fr3 * 0.4 * 0.4 * 0.4 * 0.6 * 1.0)
@@ -341,15 +341,15 @@ def test_merge_sequence_fast():
     node_c2.increment_transition(model.end)
 
     # Assert that correct paths are taken
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(6 ** -(8 + 7)))
     assert_almost_equal(
-        model.compute_sequence_log_cost(dataset[0]),
+        model.compute_sequence_log_prop(dataset[0]),
         math.log(0.5 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 *
                  0.5 * 1.0 * 0.5 * 1.0 * 0.5 * 1.0)
     )
     assert_almost_equal(
-        model.compute_sequence_log_cost(dataset[1]),
+        model.compute_sequence_log_prop(dataset[1]),
         math.log(0.5 * 0.5 * 0.5 * 1.0 * 0.5 * 1.0 +
                  0.5 * 1.0 * 1.0 * 1.0 * 1.0 * 1.0)
     )
@@ -359,22 +359,22 @@ def test_merge_sequence_fast():
     model.merge_sequence(dataset[2], dataset)
 
     # Assert that correct paths are taken
-    assert_almost_equal(model.compute_prior_log_cost(),
+    assert_almost_equal(model.compute_prior_log_prop(),
                         math.log(6 ** -(8 + 7)))
     assert_almost_equal(
-        model.compute_sequence_log_cost(dataset[0]),
+        model.compute_sequence_log_prop(dataset[0]),
         math.log(fr3 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 * 0.5 *
                  0.5 * 1.0 * 0.5 * 1.0 * 0.5 * 1.0)
     )
     assert_almost_equal(
-        model.compute_sequence_log_cost(dataset[1]),
+        model.compute_sequence_log_prop(dataset[1]),
         math.log(1*fr3 * 0.5 * 0.5 * 1.0 * 0.5 * 1.0 +
                  2*fr3 * 1.0 * 1.0 * 1.0 * 1.0 * 1.0)
     )
 
 
 def test_train_and_validate():
-    model = check_gramma.train(generate_resource(100, 'train'))
+    model = check_gramma.train(generate_resource(10, 'train'))
 
-    for sequence in generate_resource(5, 'test'):
+    for sequence in generate_resource(2, 'test'):
         assert check_gramma.validate(model, sequence)
