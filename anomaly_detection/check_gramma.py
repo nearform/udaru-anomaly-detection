@@ -3,6 +3,8 @@ import copy
 import math
 import typing
 import queue
+import itertools
+import functools
 
 """
 Validate the resource string aganist a grammatical model (think RegExp).
@@ -80,10 +82,10 @@ collaps_chars = dict()
 collaps_chars.update({char: '<0-9>' for char in '0123456789'})
 collaps_chars.update({char: '<a-f>' for char in 'abcdef'})
 collaps_chars.update({char: '<A-F>' for char in 'ABCDEF'})
-collaps_chars.update({char: '<g-z>' for char in 'ghijklmnopqurtuvwxyz'})
-collaps_chars.update({char: '<G-Z>' for char in 'GHIJKLMNOPQURTUVWXYZ'})
+collaps_chars.update({char: '<g-z>' for char in 'ghijklmnopqurstuvwxyz'})
+collaps_chars.update({char: '<G-Z>' for char in 'GHIJKLMNOPQURSTUVWXYZ'})
 
-GrammaNodeTypeype = typing.TypeVar('GrammaNode', bound='GrammaNode')
+GrammaNodeType = typing.TypeVar('GrammaNode', bound='GrammaNode')
 KeyType = typing.TypeVar('Key')
 ValueType = typing.TypeVar('Value')
 TokensType = typing.List[str]
@@ -107,6 +109,25 @@ class SparseDefaultDict(typing.DefaultDict[KeyType, ValueType]):
 class SequenceSolution(typing.NamedTuple):
     log_properbility: float
     path: typing.List[int]
+
+
+@functools.total_ordering
+class BeamSearchQueueItem(typing.NamedTuple):
+    neg_log_p: float
+    node: GrammaNodeType
+    path: typing.List[int]
+
+    def __eq__(self, other):
+        if not isinstance(other, BeamSearchQueueItem):
+            return NotImplemented
+
+        return self.neg_log_p == other.neg_log_p
+
+    def __lt__(self, other):
+        if not isinstance(other, BeamSearchQueueItem):
+            return NotImplemented
+
+        return self.neg_log_p < other.neg_log_p
 
 
 class GrammaNode:
@@ -341,44 +362,84 @@ class CheckGrammaModel:
 
         return - math.log(len(self.nodes)) * connections
 
-    def sequence_solutions(self, tokenized_sequence: TokensType) -> \
-            typing.List[SequenceSolution]:
+    def sequence_solutions(self, tokenized_sequence: TokensType,
+                           beam_size: int=100) \
+            -> typing.List[SequenceSolution]:
         """
-        Find all paths in graph for the tokenized sequence.
+        Perform a Beam Search to find heuristically the most likely paths.
+
+        A full search of all possible paths often very quite feasible in
+        the final model. However, while searching for the best model, models
+        with cyclic sub-structures may be attempted:
+
+            /- [A] -\
+        ^ -+   ↓ ↑  +-> $
+            \- [A] -/
+
+        This means that a sequence (for example, AAAA) will generate an
+        expentionally increasing amount of solutions. To prevent this, a
+        Beam Search heuristic is used.
+
+        A Beam Search maintains a list of the most likely paths found (the
+        amount of paths, is called the "beam size"), and only continues with
+        those paths even if there may be more.
+
+        The idea here is that if a path is already unlikely, it is unlikely
+        (although not impossible, hence the heuristic) that the path will
+        become likely.
         """
+
         q = queue.Queue()
-        q.put((0, 0.0, self.root, [self.root.index]))
+        q.put(BeamSearchQueueItem(
+            neg_log_p=0.0,
+            node=self.root,
+            path=[self.root.index]
+        ))
 
-        sequence_length = len(tokenized_sequence)
-        solutions = []
+        for next_char in tokenized_sequence:
+            # Prepear a PriorityQueue, from this the `beam_size` most likely
+            # paths will be extracted and put into the queue `q` in the `char`
+            # iteration.
+            next_q = queue.PriorityQueue()
 
-        # Find all possible paths for `tokenized_sequence` and compute the
-        # log properbility of that path. Store the result in `solutions`.
-        while not q.empty():
-            (sequence_index, log_p, node, path) = q.get()
-            next_char = (None if sequence_index == sequence_length else
-                         tokenized_sequence[sequence_index])
+            while not q.empty():
+                (neg_log_p, node, path) = q.get()
 
-            # Check each transition
-            for transition, transition_p in node.transition.items():
-                next_node = self.nodes[transition]
+                # Check each transition for the `node` and if the transition
+                # points to a node that can emit `next_char` add the transition
+                # to the `next_q`.
+                for transition, transition_p in node.transition.items():
+                    next_node = self.nodes[transition]
 
-                # If there is no next char, the next_node must be the end-node
-                if next_char is None:
-                    if next_node.is_end:
-                        solutions.append(SequenceSolution(
-                            log_properbility=log_p + math.log(transition_p),
+                    if next_char in next_node.emission:
+                        emission_p = next_node.emission[next_char]
+                        next_q.put(BeamSearchQueueItem(
+                            neg_log_p=neg_log_p - math.log(transition_p)
+                                                - math.log(emission_p),
+                            node=next_node,
                             path=path + [next_node.index]
                         ))
-                # The transition points to a node with matching emission
-                elif next_char in next_node.emission:
-                    q.put((
-                        sequence_index + 1,
-                        log_p + math.log(transition_p) +
-                              + math.log(next_node.emission[next_char]),
-                        next_node,
-                        path + [next_node.index]
-                    ))
+
+            # Transfer the most likely paths from `next_q` to the `q`.
+            for _ in range(min(beam_size, next_q.qsize())):
+                q.put(next_q.get())
+
+        # The end of the tokenized_sequence have been reached, now the
+        # transitions must point to the `end` node.
+        end_index = self.end.index
+
+        solutions = []
+        while not q.empty():
+            (neg_log_p, node, path) = q.get()
+
+            # If the end node is a transition in `node`, the `path` is a valid
+            # solution.
+            if end_index in node.transition:
+                transition_p = node.transition[end_index]
+                solutions.append(SequenceSolution(
+                    log_properbility=-neg_log_p + math.log(transition_p),
+                    path=path + [end_index]
+                ))
 
         return solutions
 
@@ -415,10 +476,15 @@ class CheckGrammaModel:
         solutions = self.sequence_solutions(tokenized_sequence)
 
         if len(solutions) == 0:
-            raise RuntimeError(f'no solutions found for {tokenized_sequence}')
+            # In theory there should always be a solution. However, because
+            # the solution finder uses a Beam Search the valid solution may
+            # not be found.
+            # If that is the case, the graph structure is bad anyway. So
+            # return log(0) = -infinity
+            return -float('inf')
 
         if len(solutions) == 1:
-            return solution[0].log_properbility
+            return solutions[0].log_properbility
 
         # P(D|M) = sum_{p \in paths} P(D|M,p)
         # log(P(D|M)) = log( sum_{p \in paths} exp(log(P(D|M,p))) )
@@ -484,6 +550,23 @@ class CheckGrammaModel:
         # Finally remove the node from the graph table
         del self.nodes[remove_node.index]
 
+        # The node is no longer in the Graph, so it can no longer be merged
+        remove_node.allow_merge = False
+
+    def compute_merge_cost(self,
+                           keep_node: GrammaNode,
+                           remove_node: GrammaNode,
+                           dataset: typing.List[TokensType]) -> float:
+        # Create a copy of the current model, such that the cost of
+        # a potential merge can be computed without interfering the main
+        # model.
+        suggested_model = self.copy()
+        suggested_model.merge_node(
+            suggested_model.nodes[keep_node.index],
+            suggested_model.nodes[remove_node.index]
+        )
+        return suggested_model.compute_cost(dataset)
+
     def add_unmerged_sequence(self, tokenized_sequence: TokensType) \
             -> typing.List[GrammaNode]:
         unmerged_nodes = []
@@ -533,15 +616,9 @@ class CheckGrammaModel:
             if not suggested_merge_node.allow_merge:
                 continue
 
-            # Create a copy of the current model, such that the cost of
-            # a potential merge can be computed without interfering the main
-            # model.
-            suggested_model = self.copy()
-            suggested_model.merge_node(
-                suggested_model.nodes[suggested_merge_node.index],
-                suggested_model.nodes[node.index]
+            suggested_model_cost = self.compute_merge_cost(
+                suggested_merge_node, node, dataset
             )
-            suggested_model_cost = suggested_model.compute_cost(dataset)
 
             if suggested_model_cost < best_model_cost:
                 best_model_cost = suggested_model_cost
@@ -582,18 +659,42 @@ class CheckGrammaModel:
 
         else:
             # Slow path
-            nodes = self.add_unmerged_sequence(tokenized_sequence)
-            for node in nodes:
+            unmerged_nodes = self.add_unmerged_sequence(tokenized_sequence)
+            merge_nodes = set()
+            for node in unmerged_nodes:
                 best_merge_node = self.find_optimal_merge(node, dataset)
                 if best_merge_node is None:
                     # If there are no optimial merges, then mark this node
                     # as done. This allows futures unmerged nodes to merge into
                     # this node.
                     node.allow_merge = True
+                    merge_nodes.add(node)
                 else:
                     # Found an optimal merge, execute merge on the master model
                     # and remove the new node from the list.
                     self.merge_node(best_merge_node, node)
+                    merge_nodes.add(best_merge_node)
+
+            # Purne 1-cycles among the merged nodes
+            model_cost = self.compute_cost(dataset)
+            for node_a, node_b in itertools.combinations(merge_nodes, 2):
+                # If the two nodes links to themself and each other and
+                # a merge is allowed. Try merging them together:
+                if (
+                    node_a.allow_merge and
+                    node_b.allow_merge and
+                    node_a.index in node_a.transition and
+                    node_a.index in node_a.transition and
+                    node_b.index in node_b.transition and
+                    node_a.index in node_b.transition
+                ):
+                    suggested_model_cost = self.compute_merge_cost(
+                        node_a, node_b, dataset
+                    )
+                    # If the merge improves the model cost, update the model
+                    if suggested_model_cost < model_cost:
+                        model_cost = suggested_model_cost
+                        self.merge_node(node_a, node_b)
 
 
 def train(sequences: TokensType, verbose: bool=False) -> CheckGrammaModel:
@@ -609,6 +710,7 @@ def train(sequences: TokensType, verbose: bool=False) -> CheckGrammaModel:
         tokenized_sequence = tokenize(sequence)
         tokenized_sequences.append(tokenized_sequence)
         model.merge_sequence(tokenized_sequence, tokenized_sequences)
+        print(model.stringify())
 
     return model
 
