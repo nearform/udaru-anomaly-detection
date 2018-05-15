@@ -14,9 +14,11 @@ with open('models/length-model.pkl', 'wb') as fp:
     pickle.dump(length_model, fp, protocol=pickle.HIGHEST_PROTOCOL)
 
 distribution_model = anomaly_detection.check_distribution.train(train_dataset,
+
                                                                 verbose=True)
 with open('models/distribution-model.pkl', 'wb') as fp:
     pickle.dump(distribution_model, fp, protocol=pickle.HIGHEST_PROTOCOL)
+
 
 gramma_model = anomaly_detection.check_gramma.train(train_dataset,
                                                     verbose=True)
