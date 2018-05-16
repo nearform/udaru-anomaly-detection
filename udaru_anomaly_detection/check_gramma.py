@@ -30,25 +30,25 @@ so states right of current state in the linked list, will be ignoredself.
 ^ -> [A] -> C -> D -> $
 
 the box around [A], means it links to itself.
-        /-<-\
-        \   /
+        /-<-\\
+        \\   /
 [A] =    -A->
 
 Another string is then added to graph:
 
-  /->  B  -> B -> C -> D -\
-^ --> [A] ------> C -> D --> $
+  /->  B  -> B -> C -> D -\\
+^ --> [A] ------> C -> D ---> $
 
 This is then merged:
 
-  /-> [B] -> C -> D -\
-^ --> [A] -> C -> D --> $
+  /-> [B] -> C -> D -\\
+^ --> [A] -> C -> D ---> $
 
-  /-> [B] -\   /-> D -\
-^ --> [A] --> C -> D --> $
+  /-> [B] -\\   /-> D -\\
+^ --> [A] ---> C -> D ---> $
 
-  /-> [B] -\
-^ --> [A] --> C -> D --> $
+  /-> [B] -\\
+^ --> [A] ---> C -> D --> $
 
 The merging criteria is based on Bayes' Theorem:
 
@@ -319,7 +319,7 @@ class CheckGrammaModel:
 
         In [3, 4] the baysian prior is defined as:
 
-          P(M) = \prod_{s \in States} N^(-e_s) * N^(-t_s)
+          P(M) = \\prod_{s \\in States} N^(-e_s) * N^(-t_s)
 
         Note that the notation in [3, 4] is very clumsy and the above equation
         only makes sense if the start and end states are not treated as
@@ -333,25 +333,25 @@ class CheckGrammaModel:
 
         This can be expressed as:
 
-           /-> A -\
+           /-> A -\\
         ^ -+       +> $
-           \-> B -/
+           \\-> B -/
 
         Extrapolating this to any number of emissions, a state-block like
         this contains $3 (e_s - 1) + 1 t_s$ transitions and emissions, if
         e_s and t_s is the number of emissions and transitions for (A|B).
         The baysian prior is this reformulated as:
 
-          P(M) = \prod_{s \in States} N^(-(3 * (e_s - 1) + 1)) * N^(-t_s)
+          P(M) = \\prod_{s \\in States} N^(-(3 * (e_s - 1) + 1)) * N^(-t_s)
 
         All those powers and multiplications are not nummerically stable,
         and quite expensive to compute. To improve both of these issues,
         the log properbility is computed instead:
 
-          log(P(M)) = \sum_{s \in S} log(N)*(-(3*(e_s-1)+1)) + log(N)*(-t_s)
-          log(P(M)) = \sum_{s \in S} log(N)*(-(3*(e_s-1)+1) - t_s)
-          log(P(M)) = - \sum_{s \in S} log(N)*(3 * (e_s - 1) + 1 + t_s)
-          log(P(M)) = -log(N) \sum_{s \in S} (3 * (e_s - 1) + 1 + t_s)
+          log(P(M)) = \\sum_{s \\in S} log(N)*(-(3*(e_s-1)+1)) + log(N)*(-t_s)
+          log(P(M)) = \\sum_{s \\in S} log(N)*(-(3*(e_s-1)+1) - t_s)
+          log(P(M)) = - \\sum_{s \\in S} log(N)*(3 * (e_s - 1) + 1 + t_s)
+          log(P(M)) = -log(N) \\sum_{s \\in S} (3 * (e_s - 1) + 1 + t_s)
         """
         connections = sum(
             3 * (len(node.emission) - 1) + 1 + len(node.transition)
@@ -372,9 +372,9 @@ class CheckGrammaModel:
         the final model. However, while searching for the best model, models
         with cyclic sub-structures may be attempted:
 
-            /- [A] -\
-        ^ -+   ↓ ↑  +-> $
-            \- [A] -/
+            /- [A] -\\
+        ^ -+   ↓ ↑  +--> $
+            \\- [A] -/
 
         This means that a sequence (for example, AAAA) will generate an
         expentionally increasing amount of solutions. To prevent this, a
