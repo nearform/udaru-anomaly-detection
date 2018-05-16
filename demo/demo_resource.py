@@ -1,8 +1,13 @@
 
 import pickle
+import os.path as path
 
-from _generator import generate_resource
-from anomaly_detection import check_length, check_distribution, check_gramma
+from udaru_anomaly_detection \
+    import check_length, check_distribution, check_gramma
+from udaru_anomaly_detection.tests.generator import generate_resource
+
+dirname = path.dirname(path.realpath(__file__))
+modeldir = path.join(dirname, 'models')
 
 train_dataset = list(generate_resource(100, 'test'))
 test_dataset = list(generate_resource(5, 'test')) + [
@@ -15,13 +20,13 @@ test_dataset = list(generate_resource(5, 'test')) + [
 ]
 
 
-with open('models/length-model.pkl', 'rb') as fp:
+with open(path.join(modeldir, 'length-model.pkl'), 'rb') as fp:
     length_model = pickle.load(fp)
 
-with open('models/distribution-model.pkl', 'rb') as fp:
+with open(path.join(modeldir, 'distribution-model.pkl'), 'rb') as fp:
     distribution_model = pickle.load(fp)
 
-with open('models/gramma-model.pkl', 'rb') as fp:
+with open(path.join(modeldir, 'gramma-model.pkl'), 'rb') as fp:
     gramma_model = pickle.load(fp)
 
 print('train dataset:')

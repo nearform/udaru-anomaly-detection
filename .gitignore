@@ -1,5 +1,5 @@
-anomaly_detection/download
-models/
+udaru_anomaly_detection/download
+demo/models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

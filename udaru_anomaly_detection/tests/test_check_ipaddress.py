@@ -1,8 +1,8 @@
 
 from nose.tools import *
-from _generator import generate_resource
+from .generator import generate_resource
 
-import anomaly_detection.check_ipaddress as check_ipaddress
+import udaru_anomaly_detection.check_ipaddress as check_ipaddress
 
 
 def test_check_ipaddress():

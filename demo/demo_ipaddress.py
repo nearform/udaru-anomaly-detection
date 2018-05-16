@@ -1,5 +1,5 @@
 
-from anomaly_detection import check_ipaddress
+from udaru_anomaly_detection import check_ipaddress
 
 hour = 60 * 60 * 1000
 nyc_ipaddress = '64.64.117.58'  # New York City

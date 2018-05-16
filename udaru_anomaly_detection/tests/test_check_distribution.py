@@ -1,8 +1,8 @@
 
 from nose.tools import *
-from _generator import generate_resource
+from .generator import generate_resource
 
-import anomaly_detection.check_distribution as check_distribution
+import udaru_anomaly_detection.check_distribution as check_distribution
 
 
 def test_check_distribution():

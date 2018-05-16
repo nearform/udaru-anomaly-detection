@@ -1,8 +1,8 @@
 
 from nose.tools import *
-from _generator import generate_resource
+from .generator import generate_resource
 
-import anomaly_detection.check_length as check_length
+import udaru_anomaly_detection.check_length as check_length
 
 
 def test_check_length():

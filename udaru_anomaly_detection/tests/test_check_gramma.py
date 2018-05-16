@@ -1,10 +1,10 @@
 
 from nose.tools import *
-from _generator import generate_resource
+from .generator import generate_resource
 
 import math
 
-import anomaly_detection.check_gramma as check_gramma
+import udaru_anomaly_detection.check_gramma as check_gramma
 
 fr3 = 1/3
 
