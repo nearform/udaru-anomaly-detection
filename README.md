@@ -37,10 +37,6 @@ distribution_model.validate(
 Builds a graph model (think, regular expression) based on previuse
 observations and checks if the new `resource` string maches·
 
-TODO:
-
-* Training the model can be solve. (1 hour for 100 resources).
-
 ```python
 from anomaly_detection import check_gramma
 
@@ -79,6 +75,20 @@ print(check_ipaddress.validate(previuse_timestamp_ms=0 * hour,
                                previuse_ipaddress=nyc_ipaddress,
                                current_timestamp_ms=2 * hour,
                                current_ipaddress=lon_ipaddress)) # Invalid
+```
+
+## CLI tool
+
+As a demo, there is a CLI tool available that integrates with `trail`.
+
+TODO:
+
+* Not tested
+
+```
+udaru-anomaly-detection --insert
+udaru-anomaly-detection --train --from 2017-01-01 --to 2017-12-31 --modeldir=./cli_models
+udaru-anomaly-detection --test --from 2018-01-01 --to 2018-12-31 --modeldir=./cli_models
 ```
 
 ## LICENSE

@@ -8,6 +8,7 @@ setup(name='udaru_anomaly_detection',
       author_email='support@nearform.com',
       license='Private',
       packages=['udaru_anomaly_detection'],
+      scripts=['bin/udaru-anomaly-detection'],
       install_requires=[
           'scipy',
           'numpy',

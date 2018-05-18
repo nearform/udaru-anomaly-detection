@@ -710,7 +710,6 @@ def train(sequences: TokensType, verbose: bool=False) -> CheckGrammaModel:
         tokenized_sequence = tokenize(sequence)
         tokenized_sequences.append(tokenized_sequence)
         model.merge_sequence(tokenized_sequence, tokenized_sequences)
-        print(model.stringify())
 
     return model
 
