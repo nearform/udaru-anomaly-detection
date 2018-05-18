@@ -1,5 +1,6 @@
 udaru_anomaly_detection/download
 demo/models/
+cli_models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
