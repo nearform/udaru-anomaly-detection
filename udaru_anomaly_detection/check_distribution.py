@@ -34,8 +34,8 @@ collaps_chars = dict()
 collaps_chars.update({char: '<0-9>' for char in '0123456789'})
 collaps_chars.update({char: '<a-f>' for char in 'abcdef'})
 collaps_chars.update({char: '<A-F>' for char in 'ABCDEF'})
-collaps_chars.update({char: '<g-z>' for char in 'ghijklmnopqurtuvwxyz'})
-collaps_chars.update({char: '<G-Z>' for char in 'GHIJKLMNOPQURTUVWXYZ'})
+collaps_chars.update({char: '<g-z>' for char in 'ghijklmnopqurstuvwxyz'})
+collaps_chars.update({char: '<G-Z>' for char in 'GHIJKLMNOPQURSTUVWXYZ'})
 
 
 class CheckDistributionModel(typing.NamedTuple):
