@@ -16,7 +16,7 @@ deviates more from the mean than a threshold (t), is less than `\sigma^2 / t^2`
 
 This is reformulated to "the properbility that something (x)
 deviates more from the mean than the current deviation (|l - \mu|). Where `l`
-is the current deviation.
+is the current resource string length.
               p(|x - \mu| > |l - \mu|) < \sigma^2 / (l - \mu)^2
 """
 

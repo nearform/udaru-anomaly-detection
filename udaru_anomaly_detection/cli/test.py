@@ -41,14 +41,15 @@ def test(args):
         when = datetime.datetime.strptime(item["when"],
                                           "%Y-%m-%dT%H:%M:%S.%fZ")
         resource = item["subject"]["id"]
-        ipaddress = item["who"]["attributes"]["ip-address"]
+        action = item["subject"]["attributes"]["action"]
+        ipaddress = item["where"]["ip"]
         ipaddress_string = (
             f' ({demo_ipaddress_helper[ipaddress]})'
             if ipaddress in demo_ipaddress_helper
             else ''
         )
 
-        print(f'Checking "{user}" doing "{item["what"]["id"]}"')
+        print(f'Checking "{user}" doing "{action}"')
         print(f'  time: {when}')
         print(f'  resource: {resource}')
         print(f'  ip-address: {ipaddress}{ipaddress_string}')

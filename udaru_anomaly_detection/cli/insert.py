@@ -13,12 +13,21 @@ def insert(args):
             when=(datetime.datetime(2017, 1, 1) +
                   datetime.timedelta(days=1) * resource_i),
             who={
-                'id': 'resource_user',
-                'ip-address': '64.64.117.58'
+                'id': 'organization/resource_user',
+                'user': 'resource_user',
+                'organization': 'organization'
             },
-            what='action',
-            subject=resource,
+            what='authorization:isUserAuthorized',
+            subject={
+                'id': resource,
+                'action': 'action'
+            },
+            where={
+                'ip': '64.64.117.58',
+                'port': '35246'
+            },
             meta={
+                'result': True,
                 'dataset': 'train',
                 'expect': 'NA'
             }
@@ -30,12 +39,21 @@ def insert(args):
             when=(datetime.datetime(2018, 1, 1) +
                   datetime.timedelta(days=1) * resource_i),
             who={
-                'id': 'resource_user',
-                'ip-address': '64.64.117.58'
+                'id': 'organization/resource_user',
+                'user': 'resource_user',
+                'organization': 'organization'
             },
-            what='action',
-            subject=resource,
+            what='authorization:isUserAuthorized',
+            subject={
+                'id': resource,
+                'action': 'action'
+            },
+            where={
+                'ip': '64.64.117.58',
+                'port': '35246'
+            },
             meta={
+                'result': True,
                 'dataset': 'test',
                 'expect': 'valid'
             }
@@ -56,12 +74,21 @@ def insert(args):
             when=(datetime.datetime(2018, 2, 1) +
                   datetime.timedelta(days=1) * resource_i),
             who={
-                'id': 'resource_user',
-                'ip-address': '64.64.117.58'
+                'id': 'organization/resource_user',
+                'user': 'resource_user',
+                'organization': 'organization'
             },
-            what='action',
-            subject=resource,
+            what='authorization:isUserAuthorized',
+            subject={
+                'id': resource,
+                'action': 'action'
+            },
+            where={
+                'ip': '64.64.117.58',
+                'port': '35246'
+            },
             meta={
+                'result': True,
                 'dataset': 'test',
                 'expect': 'invalid'
             }
@@ -83,12 +110,21 @@ def insert(args):
             when=(datetime.datetime(2018, 3, 1) +
                   datetime.timedelta(days=1) * user_i),
             who={
-                'id': f'user_{user_i}',
-                'ip-address': from_ip
+                'id': f'organization/user_{user_i}',
+                'user': f'user_{user_i}',
+                'organization': 'organization'
             },
-            what='action',
-            subject='res:bb185024/iptest',
+            what='authorization:isUserAuthorized',
+            subject={
+                'id': 'res:bb185024/iptest',
+                'action': 'action'
+            },
+            where={
+                'ip': from_ip,
+                'port': '35246'
+            },
             meta={
+                'result': True,
                 'dataset': 'test',
                 'expect': 'valid'
             }
@@ -99,12 +135,21 @@ def insert(args):
                   datetime.timedelta(days=1) * user_i +
                   datetime.timedelta(hours=duration)),
             who={
-                'id': f'user_{user_i}',
-                'ip-address': to_ip
+                'id': f'organization/user_{user_i}',
+                'user': f'user_{user_i}',
+                'organization': 'organization'
             },
-            what='action',
-            subject='res:bb185024/iptest',
+            what='authorization:isUserAuthorized',
+            subject={
+                'id': 'res:bb185024/iptest',
+                'action': 'action'
+            },
+            where={
+                'ip': to_ip,
+                'port': '35246'
+            },
             meta={
+                'result': True,
                 'dataset': 'test',
                 'expect': 'valid' if valid else 'invalid'
             }
