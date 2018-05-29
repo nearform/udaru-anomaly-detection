@@ -13,9 +13,10 @@ setup(name='udaru_anomaly_detection',
           'scipy',
           'numpy',
           'geoip2',
-          'tqdm'
+          'tqdm',
+          'faker'
       ],
       test_suite='nose.collector',
-      tests_require=['faker', 'nose'],
+      tests_require=['nose'],
       include_package_data=True,
       zip_safe=False)
