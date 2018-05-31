@@ -93,7 +93,7 @@ udaru-anomaly-detection --test --from 2018-01-01 --to 2018-12-31 --modeldir=./cl
 
 ## LICENSE
 
-* Private, Copyright (c) 2017 nearForm
+* Apache 2.0, Copyright (c) 2018 nearForm
 
 * This product includes GeoLite2 data created by MaxMind, available from
  <a href="http://www.maxmind.com">http://www.maxmind.com</a>.
